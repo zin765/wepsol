@@ -1,0 +1,53 @@
+async function confirmTransaction() {
+    if (!wallet) return;
+    
+    const resultDiv = document.getElementById('result');
+    resultDiv.innerHTML = '<p>Processing... Please wait</p>';
+    
+    try {
+        const response = await fetch('/close_accounts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `wallet=${encodeURIComponent(wallet)}`
+        });
+        
+        const data = await response.json();
+        if (data.error) {
+            resultDiv.innerHTML = `<p class="error">❌ ${data.error}</p>`;
+        } else {
+            try {
+                const connection = new solanaWeb3.Connection("https://proud-aged-flower.solana-mainnet.quiknode.pro/6c4369466a2cfc21c12af4a500501aa9b0093340/", {
+                    commitment: "confirmed"
+                });
+
+                const transaction = new solanaWeb3.Transaction();
+
+                for (const account of data.accounts) {
+                    const instruction = await getCloseAccountInstruction(account, wallet);
+                    transaction.add(instruction);
+                }
+
+                const { blockhash } = await connection.getLatestBlockhash();
+                transaction.recentBlockhash = blockhash;
+                transaction.feePayer = new solanaWeb3.PublicKey(wallet);
+
+                const signedTransaction = await window.solana.signTransaction(transaction);
+                const signature = await connection.sendRawTransaction(signedTransaction.serialize());
+                await connection.confirmTransaction(signature, "confirmed");
+
+                resultDiv.innerHTML = `
+                    <p class="success">✅ Transaction sent successfully!</p>
+                    <p>Accounts closed: ${data.accounts.length}</p>
+                    <p>Estimated SOL recovered: ${data.estimated_sol}</p>
+                    <p>Transaction: <a href="https://explorer.solana.com/tx/${signature}" target="_blank">View on Explorer</a></p>
+                `;
+            } catch (err) {
+                resultDiv.innerHTML = `<p class="error">❌ Error closing accounts: ${err.message}</p>`;
+            }
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
+    }
+}
