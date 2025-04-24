@@ -1,15 +1,24 @@
+import os
 from flask import Flask, render_template, request, jsonify
 import requests
 import logging
 
 app = Flask(__name__)
+app.template_folder = 'templates' #Added to specify template folder.
 logging.basicConfig(level=logging.INFO)
 
 QUICKNODE_URL = "https://proud-aged-flower.solana-mainnet.quiknode.pro/6c4369466a2cfc21c12af4a500501aa9b0093340/"
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    user_id = request.headers.get('X-Replit-User-Id', '')
+    user_name = request.headers.get('X-Replit-User-Name', '')
+    user_roles = request.headers.get('X-Replit-User-Roles', '')
+
+    return render_template('index.html',
+                         user_id=user_id,
+                         user_name=user_name,
+                         user_roles=user_roles)
 
 @app.route('/close_accounts', methods=['POST'])
 def close_accounts():
@@ -32,7 +41,7 @@ def close_accounts():
 
         response = requests.post(QUICKNODE_URL, json=data, headers=headers)
         response.raise_for_status()
-        
+
         accounts = response.json()["result"]["value"]
         empty_accounts = []
 
